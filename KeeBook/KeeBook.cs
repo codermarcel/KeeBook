@@ -185,13 +185,20 @@ namespace KeeBook
                 }
             }
 
-            MessageBox.Show(icon);
-
-
-
             PwGroup pwgroup = returnGroup();
             PwEntry pwe = new PwEntry(true, true);
-            pwe.IconId = getEntryIcon(icon);
+
+
+            PwCustomIcon custom_icon = addCustomIcon(icon);
+
+            if (custom_icon != null)
+            {
+                pwe.CustomIconUuid = custom_icon.Uuid;
+            }else
+            {
+                pwe.IconId = PwIcon.Warning;
+            }
+
             pwe.Strings.Set(PwDefs.TitleField, new ProtectedString(false, title));
             pwe.Strings.Set(PwDefs.UrlField, new ProtectedString(false, url));
 
@@ -221,18 +228,21 @@ namespace KeeBook
             return false;
         }
 
-        private PwIcon getEntryIcon(string icon)
+        private PwCustomIcon addCustomIcon(string icon_url)
         {
-            return getSecureIcon("https://");
-        }
 
-        private PwIcon getSecureIcon(string url)
-        {
-            if (url.Contains("https://"))
+            try
             {
-                return PwIcon.LockOpen;
+                byte[] icon_data = new System.Net.WebClient().DownloadData(icon_url);
+                PwUuid uuid = new PwUuid(true);
+                PwCustomIcon custom_icon = new PwCustomIcon(uuid, icon_data);
+                m_host.Database.CustomIcons.Add(custom_icon);
+                return custom_icon;
             }
-            return PwIcon.Star;
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
 
