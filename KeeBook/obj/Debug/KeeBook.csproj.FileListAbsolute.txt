@@ -1,0 +1,33 @@
+C:\Users\admin\Desktop\KeeBook\KeeBook\bin\Debug\KeeBook.dll
+C:\Users\admin\Desktop\KeeBook\KeeBook\bin\Debug\KeePass.exe
+C:\Users\admin\Desktop\KeeBook\KeeBook\bin\Debug\KeePass.XmlSerializers.dll
+C:\Users\admin\Desktop\KeeBook\KeeBook\bin\Debug\KeeBook.dll.config
+C:\Users\admin\Desktop\KeeBook\KeeBook\obj\Debug\KeeBook.csprojResolveAssemblyReference.cache
+C:\Users\admin\Desktop\KeeBook\KeeBook\obj\Debug\KeeBook.Properties.Resources.resources
+C:\Users\admin\Desktop\KeeBook\KeeBook\obj\Debug\KeeBook.csproj.GenerateResource.Cache
+C:\Users\admin\Desktop\KeeBook\KeeBook\obj\Debug\KeeBook.dll
+C:\Users\admin\Desktop\KeeBook\KeeBook\obj\Debug\KeeBook.pdb
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.0\KeeBook\bin\Debug\KeeBook.dll.config
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.0\KeeBook\bin\Debug\KeeBook.dll
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.0\KeeBook\bin\Debug\KeeBook.pdb
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.0\KeeBook\bin\Debug\KeePass.XmlSerializers.dll
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.0\KeeBook\obj\Debug\KeeBook.csprojResolveAssemblyReference.cache
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.0\KeeBook\obj\Debug\KeeBook.Properties.Resources.resources
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.0\KeeBook\obj\Debug\KeeBook.csproj.GenerateResource.Cache
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.0\KeeBook\obj\Debug\KeeBook.dll
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.0\KeeBook\obj\Debug\KeeBook.pdb
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.1\KeeBook\bin\Debug\KeeBook.dll.config
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.1\KeeBook\bin\Debug\KeeBook.dll
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.1\KeeBook\obj\Debug\KeeBook.Properties.Resources.resources
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.1\KeeBook\obj\Debug\KeeBook.csproj.GenerateResource.Cache
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.1\KeeBook\obj\Debug\KeeBook.dll
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.1\KeeBook\obj\Debug\KeeBook.pdb
+C:\Users\admin\Desktop\2015.09.04-v1.2.2.0\2015.09.04-KeeBook KeePass Plugin v1.2.2.1\KeeBook\bin\Debug\KeeBook.pdb
+C:\Users\admin\Documents\GitHub\KeeBookCSharp\KeeBook\bin\Debug\KeeBook.dll.config
+C:\Users\admin\Documents\GitHub\KeeBookCSharp\KeeBook\bin\Debug\KeeBook.dll
+C:\Users\admin\Documents\GitHub\KeeBookCSharp\KeeBook\bin\Debug\KeeBook.pdb
+C:\Users\admin\Documents\GitHub\KeeBookCSharp\KeeBook\obj\Debug\KeeBook.csprojResolveAssemblyReference.cache
+C:\Users\admin\Documents\GitHub\KeeBookCSharp\KeeBook\obj\Debug\KeeBook.Properties.Resources.resources
+C:\Users\admin\Documents\GitHub\KeeBookCSharp\KeeBook\obj\Debug\KeeBook.csproj.GenerateResource.Cache
+C:\Users\admin\Documents\GitHub\KeeBookCSharp\KeeBook\obj\Debug\KeeBook.dll
+C:\Users\admin\Documents\GitHub\KeeBookCSharp\KeeBook\obj\Debug\KeeBook.pdb

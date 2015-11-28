@@ -1,0 +1,6 @@
+C:\Users\admin\Desktop\KeeBook\KeeBook\bin\Debug\KeeBookExt.dll
+C:\Users\admin\Desktop\KeeBook\KeeBook\bin\Debug\KeeBookExt.pdb
+C:\Users\admin\Desktop\KeeBook\KeeBook\bin\Debug\KeePass.exe
+C:\Users\admin\Desktop\KeeBook\KeeBook\bin\Debug\KeePass.XmlSerializers.dll
+C:\Users\admin\Desktop\KeeBook\KeeBook\obj\Debug\KeeBookExt.dll
+C:\Users\admin\Desktop\KeeBook\KeeBook\obj\Debug\KeeBookExt.pdb
