@@ -8,14 +8,16 @@ using KeePass.Plugins;
 using KeePassLib;
 using KeePassLib.Security;
 using System.Drawing;
+using System.Text;
+using System.Security.Cryptography;
+using System.IO;
 
 namespace KeeBook
 {
     public sealed class KeeBookExt : Plugin
     {
 
-        #region Date and Time
-
+        #region Date and time
         public readonly System.DateTime EPOCH = new System.DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         public int UnixTime(System.DateTime d)
@@ -34,21 +36,15 @@ namespace KeeBook
         }
         #endregion
 
-
-        string lastUri = string.Empty;
-
         private IPluginHost m_host = null;
-
         private const string ProductName = "KeeBook";
         private const string keepass_prefix = ProductName + "_";
         private const string KEEBOOK_GROUP_NAME = "Bookmarks (" + ProductName + ")";
 
         private const string cbShowMsgName = "Show Debug Messages";
         private const string cvShowMsg = keepass_prefix + cbShowMsgName;
-
         private const string cbDateName = "Set utc date as note";
         private const string cvDate = keepass_prefix + cbDateName;
-
         private const string cbDuplicateEntry = "Prevent adding duplicate entries";
         private const string cvDuplicateEntry = keepass_prefix + cbDuplicateEntry;
 
@@ -67,14 +63,13 @@ namespace KeeBook
             bool setDate = Properties.Settings.Default.date_as_note;
             bool checkDuplicate = Properties.Settings.Default.prevent_duplicate;
 
-
             ToolStripItemCollection tsMenu = m_host.MainWindow.ToolsMenu.DropDownItems;
 
-            // Add a separator at the bottom
+            // Add a separator at the bottom of KeePass
             ToolStripSeparator kbSeperator = new ToolStripSeparator();
             tsMenu.Add(kbSeperator);
 
-            // Add the popup menu item
+            // Add the popup menu item to KeePass
             ToolStripMenuItem kbMenuTootItem = new ToolStripMenuItem();
             kbMenuTootItem.Text = ProductName;
             kbMenuTootItem.Image = KeeBook.Properties.Resources.KeeBook.ToBitmap();
@@ -151,43 +146,69 @@ namespace KeeBook
         private void _RequestHandler(IAsyncResult r)
         {
             if (stopped) return;
+
             var l = (HttpListener)r.AsyncState;
             var ctx = l.EndGetContext(r);
             var req = ctx.Request;
             var resp = ctx.Response;
 
-            lastUri = req.Url.ToString();
-            string title = req.QueryString["t"];
+            string lastUri = req.Url.ToString();
             string url = req.QueryString["u"];
+            string title = req.QueryString["t"];
             string icon = req.QueryString["i"];
 
-            string decoded_title = System.Uri.UnescapeDataString(title);
-            string decoded_url = System.Uri.UnescapeDataString(url);
+            string decoded_url = url;
+            string decoded_title = title;
+            string decoded_icon = url;
 
-            if (Properties.Settings.Default.debug_message) 
+            try
             {
-                MessageBox.Show("Title :" + title + Environment.NewLine + "Url : " + url + "Decoded Title :" + decoded_title + Environment.NewLine + "Decoded Url : " + decoded_url, ProductName + " Debug Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                decoded_url = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(url));
+                decoded_title = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(title));
+                decoded_icon = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(icon));
+
+                //Show debug message
+                showDebugMessage(string.Format("Title - {1}{0}{0} Url - {2}{0}{0} Decoded Title - {3}{0}{0} Decoded Url - {4}{0}{0}", Environment.NewLine, title, url, decoded_title, decoded_url));
+
+                //Check if entry already exists.
+                if (!isDuplicateEntry(decoded_url, decoded_title))
+                {
+                    creatNewBookmark(decoded_url, decoded_title, decoded_icon);
+                }
             }
-            creatNewBookmark(decoded_title, decoded_url, icon, Properties.Settings.Default.date_as_note, Properties.Settings.Default.prevent_duplicate);
+            catch (Exception ex)
+            {
+                showDebugMessage(ex.Message);
+            }
         }
 
-        private void creatNewBookmark(string title, string url, string icon, Boolean addUtcDate = true, Boolean checkDuplicate = true)
+        private bool isDuplicateEntry(string url, string title)
         {
-            if (checkDuplicate)
+            PwGroup gr = returnGroup();
+
+            foreach (PwEntry entry in gr.Entries)
             {
-                if (isDuplicateEntry(title, url))
+                string enTitle = entry.Strings.Get(PwDefs.TitleField).ReadString();
+                string enUrl = entry.Strings.Get(PwDefs.UrlField).ReadString();
+                if (url == enUrl && title == enTitle)
                 {
-                    if (Properties.Settings.Default.debug_message)
+                    if (Properties.Settings.Default.prevent_duplicate)
                     {
-                        MessageBox.Show("Not adding Duplicate with title" + Environment.NewLine + title, ProductName + " Debug Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        showDebugMessage("Not adding Duplicate with title" + Environment.NewLine + title);
                     }
-                    return;
+
+                    return true;
                 }
             }
 
+            return false;
+        }
+
+
+        private void creatNewBookmark(string url, string title, string icon)
+        {
             PwGroup pwgroup = returnGroup();
             PwEntry pwe = new PwEntry(true, true);
-
 
             PwCustomIcon custom_icon = addCustomIcon(icon);
 
@@ -196,37 +217,21 @@ namespace KeeBook
                 pwe.CustomIconUuid = custom_icon.Uuid;
             }else
             {
-                pwe.IconId = PwIcon.Warning;
+                pwe.IconId = PwIcon.Star;
             }
 
             pwe.Strings.Set(PwDefs.TitleField, new ProtectedString(false, title));
             pwe.Strings.Set(PwDefs.UrlField, new ProtectedString(false, url));
 
-
-
-            if (addUtcDate)
+            if (Properties.Settings.Default.date_as_note)
             {
                 pwe.Strings.Set(PwDefs.NotesField, new ProtectedString(true, LongUtcDateIso8601() + Environment.NewLine + ProductName));
             }
 
             pwgroup.AddEntry(pwe, true);
-            UpdateUI(returnGroup());
+            customUpdateUI(returnGroup());
         }
 
-        private bool isDuplicateEntry(string title, string url)
-        {
-            PwGroup gr = returnGroup();
-            foreach (PwEntry entry in gr.Entries)
-            {
-                string enTitle = entry.Strings.Get(PwDefs.TitleField).ReadString();
-                string enUrl = entry.Strings.Get(PwDefs.UrlField).ReadString();
-                if (url == enUrl && title == enTitle)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
 
         private PwCustomIcon addCustomIcon(string icon_url)
         {
@@ -234,32 +239,67 @@ namespace KeeBook
             try
             {
                 byte[] icon_data = new System.Net.WebClient().DownloadData(icon_url);
+
+                PwCustomIcon check_icon = getCustomIcon(icon_data);
+                
+                if (check_icon != null)
+                {
+                    return check_icon;
+                }
+
+
                 PwUuid uuid = new PwUuid(true);
                 PwCustomIcon custom_icon = new PwCustomIcon(uuid, icon_data);
                 m_host.Database.CustomIcons.Add(custom_icon);
                 return custom_icon;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return null;
+                showDebugMessage(ex.Message);
             }
+
+            return null;
         }
 
+        private PwCustomIcon getCustomIcon(byte[] icon_data)
+        {
+            try
+            {
+                System.Collections.Generic.List<PwCustomIcon> icon_entries = m_host.Database.CustomIcons;
 
-        private void cbShowMessageClick(object sender, EventArgs e)
-        {
-            Properties.Settings.Default.debug_message = !Properties.Settings.Default.debug_message;
-            ((ToolStripMenuItem)sender).Checked = Properties.Settings.Default.debug_message;
+                for (int i = 0; i < icon_entries.Count; i++)
+                {
+                    string checksum1 = CalculateMD5Hash(icon_entries[i].ImageDataPng);
+                    string checksum2 = CalculateMD5Hash(icon_data);
+
+                    if (checksum1 == checksum2)
+                    {
+                        return icon_entries[i];
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                showDebugMessage(ex.Message);
+            }
+
+            return null;
         }
-        private void cbSetDateClick(object sender, EventArgs e)
+
+        public string CalculateMD5Hash(byte[] input)
         {
-            Properties.Settings.Default.date_as_note = !Properties.Settings.Default.date_as_note;
-            ((ToolStripMenuItem)sender).Checked = Properties.Settings.Default.date_as_note;
-        }
-        private void cbPreventDuplicateClick(object sender, EventArgs e)
-        {
-            Properties.Settings.Default.prevent_duplicate = !Properties.Settings.Default.prevent_duplicate;
-            ((ToolStripMenuItem)sender).Checked = Properties.Settings.Default.prevent_duplicate;
+            // step 1, calculate MD5 hash from input
+            System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create();
+            byte[] hash = md5.ComputeHash(input);
+
+            // step 2, convert byte array to hex string
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < hash.Length; i++)
+            {
+                sb.Append(hash[i].ToString("X2"));
+            }
+            return sb.ToString();
         }
 
 
@@ -267,22 +307,23 @@ namespace KeeBook
         {
             var root = m_host.Database.RootGroup;
             var group = root.FindCreateGroup(KEEBOOK_GROUP_NAME, false);
+
             if (group == null)
             {
                 group = new PwGroup(true, true, KEEBOOK_GROUP_NAME, PwIcon.Star);
                 root.AddGroup(group, true);
-                UpdateUI(null);
+                customUpdateUI(null);
             }
+
             return group;
         }
 
-
-        private void UpdateUI(PwGroup group)
+        private void customUpdateUI(PwGroup group)
         {
             var win = m_host.MainWindow;
             if (group == null) group = m_host.Database.RootGroup;
             var f = (MethodInvoker)delegate {
-                win.UpdateUI(false, null, true, group, true, null, true);
+                win.UpdateUI(true, null, true, group, true, null, true);
             };
             if (win.InvokeRequired)
                 win.Invoke(f);
@@ -304,17 +345,39 @@ namespace KeeBook
             {
                 MessageBox.Show("Saving settings");
             }
-            saveSettings();
 
-            UpdateUI(null);
+            Properties.Settings.Default.Save();
+        
+            customUpdateUI(null);
             m_host = null;
             Environment.Exit(1337);
         }
 
-        public void saveSettings()
+        private void showDebugMessage(string message)
         {
-            Properties.Settings.Default.Save();
+            if (Properties.Settings.Default.debug_message)
+            {
+                MessageBox.Show(message, ProductName + " Debug Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
         }
+
+        private void cbShowMessageClick(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.debug_message = !Properties.Settings.Default.debug_message;
+            ((ToolStripMenuItem)sender).Checked = Properties.Settings.Default.debug_message;
+        }
+
+        private void cbSetDateClick(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.date_as_note = !Properties.Settings.Default.date_as_note;
+            ((ToolStripMenuItem)sender).Checked = Properties.Settings.Default.date_as_note;
+        }
+
+        private void cbPreventDuplicateClick(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.prevent_duplicate = !Properties.Settings.Default.prevent_duplicate;
+            ((ToolStripMenuItem)sender).Checked = Properties.Settings.Default.prevent_duplicate;
+        }
+
     }
 }
-

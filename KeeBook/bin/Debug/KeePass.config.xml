@@ -5,7 +5,7 @@
 		<OmitItemsWithDefaultValues>true</OmitItemsWithDefaultValues>
 	</Meta>
 	<Application>
-		<LastUpdateCheck>2015-09-04T07:21:29Z</LastUpdateCheck>
+		<LastUpdateCheck>2015-11-28T21:55:59Z</LastUpdateCheck>
 		<LastUsedFile>
 			<Path>..\..\..\..\test123.kdbx</Path>
 			<CredProtMode>Obf</CredProtMode>
@@ -14,6 +14,11 @@
 		<MostRecentlyUsed>
 			<MaxItemCount>12</MaxItemCount>
 			<Items>
+				<ConnectionInfo>
+					<Path>..\..\..\..\test123.kdbx</Path>
+					<CredProtMode>Obf</CredProtMode>
+					<CredSaveMode>NoSave</CredSaveMode>
+				</ConnectionInfo>
 				<ConnectionInfo>
 					<Path>..\..\Users\admin\Desktop\NewDatabase.kdbx</Path>
 					<CredProtMode>Obf</CredProtMode>
@@ -38,8 +43,8 @@
 	</Application>
 	<Logging />
 	<MainWindow>
-		<X>488</X>
-		<Y>199</Y>
+		<X>489</X>
+		<Y>222</Y>
 		<Width>1167</Width>
 		<Height>589</Height>
 		<SplitterHorizontalFrac>0.83125</SplitterHorizontalFrac>
