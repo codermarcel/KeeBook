@@ -40,6 +40,7 @@ namespace KeeBook
         private const string ProductName = "KeeBook";
         private const string keepass_prefix = ProductName + "_";
         private const string KEEBOOK_GROUP_NAME = "Bookmarks (" + ProductName + ")";
+        private const string KEEBOOK_LAST_EDITED_NAME = "KeeBook Last Access";
 
         private const string cbShowMsgName = "Show Debug Messages";
         private const string cvShowMsg = keepass_prefix + cbShowMsgName;
@@ -124,9 +125,9 @@ namespace KeeBook
                     r.AsyncWaitHandle.Close();
                 }
                 catch (ThreadInterruptedException) { }
-                catch (HttpListenerException e)
+                catch (HttpListenerException ex)
                 {
-                    MessageBox.Show(ProductName + " error (1)" + Environment.NewLine + e.ToString());
+                    showError(ex);
                 }
             }
         }
@@ -137,9 +138,9 @@ namespace KeeBook
             {
                 _RequestHandler(r);
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                MessageBox.Show(ProductName + " error (2)" + Environment.NewLine + e.ToString());
+                showError(ex);
             }
         }
 
@@ -157,29 +158,22 @@ namespace KeeBook
             string title = req.QueryString["t"];
             string icon = req.QueryString["i"];
 
-            string decoded_url = url;
-            string decoded_title = title;
-            string decoded_icon = url;
-
             try
             {
-                decoded_url = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(url));
-                decoded_title = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(title));
-                decoded_icon = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(icon));
+                string decoded_url = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(url));
+                string decoded_title = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(title));
+                string decoded_icon = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(icon));
 
-                //Show debug message
                 showDebugMessage(string.Format("Title - {1}{0}{0} Url - {2}{0}{0} Decoded Title - {3}{0}{0} Decoded Url - {4}{0}{0}", Environment.NewLine, title, url, decoded_title, decoded_url));
-
-                //Check if entry already exists.
-                if (!isDuplicateEntry(decoded_url, decoded_title))
-                {
-                    creatNewBookmark(decoded_url, decoded_title, decoded_icon);
-                }
+                creatNewBookmark(decoded_url, decoded_title, decoded_icon);
             }
             catch (Exception ex)
             {
-                showDebugMessage(ex.Message);
+                showError(ex);
             }
+
+            updateLastEdited();
+            customUpdateUI(returnGroup());
         }
 
         private bool isDuplicateEntry(string url, string title)
@@ -188,81 +182,144 @@ namespace KeeBook
 
             foreach (PwEntry entry in gr.Entries)
             {
-                string enTitle = entry.Strings.Get(PwDefs.TitleField).ReadString();
-                string enUrl = entry.Strings.Get(PwDefs.UrlField).ReadString();
-                if (url == enUrl && title == enTitle)
+                try
                 {
-                    if (Properties.Settings.Default.prevent_duplicate)
+                    string enTitle = entry.Strings.Get(PwDefs.TitleField).ReadString();
+                    string enUrl = entry.Strings.Get(PwDefs.UrlField).ReadString();
+                    if (url == enUrl && title == enTitle)
                     {
-                        showDebugMessage("Not adding Duplicate with title" + Environment.NewLine + title);
-                    }
+                        if (Properties.Settings.Default.prevent_duplicate)
+                        {
+                            showDebugMessage("Not adding Duplicate with title" + Environment.NewLine + title);
+                        }
 
-                    return true;
+                        return true;
+                    }
                 }
+                catch (Exception)
+                {
+                }
+
             }
 
             return false;
         }
 
 
-        private void creatNewBookmark(string url, string title, string icon)
+        private void createEntry(string title, string url = null, string icon = null, string note = null)
         {
             PwGroup pwgroup = returnGroup();
             PwEntry pwe = new PwEntry(true, true);
-
-            PwCustomIcon custom_icon = addCustomIcon(icon);
-
-            if (custom_icon != null)
+            setIcon(pwe, icon);
+            setTags(pwe, url);
+            
+            if (!string.IsNullOrEmpty(title))
             {
-                pwe.CustomIconUuid = custom_icon.Uuid;
-            }else
-            {
-                pwe.IconId = PwIcon.Star;
+                pwe.Strings.Set(PwDefs.TitleField, new ProtectedString(false, title));
             }
 
-            pwe.Strings.Set(PwDefs.TitleField, new ProtectedString(false, title));
-            pwe.Strings.Set(PwDefs.UrlField, new ProtectedString(false, url));
-
-            if (Properties.Settings.Default.date_as_note)
+            if (!string.IsNullOrEmpty(url))
             {
-                pwe.Strings.Set(PwDefs.NotesField, new ProtectedString(true, LongUtcDateIso8601() + Environment.NewLine + ProductName));
+                pwe.Strings.Set(PwDefs.UrlField, new ProtectedString(false, url));
+            }
+
+            if (!string.IsNullOrEmpty(note))
+            {
+                pwe.Strings.Set(PwDefs.NotesField, new ProtectedString(true, note));
             }
 
             pwgroup.AddEntry(pwe, true);
-            customUpdateUI(returnGroup());
+        }
+
+        private void setTags(PwEntry pwe, string url = null)
+        {
+            pwe.AddTag("keebook_bookmark");
+
+            if (!string.IsNullOrEmpty(url))
+            {
+                if (url.Contains("https://"))
+                {
+                    pwe.AddTag("keebook_secure_url");
+                }
+            }
+
+            if (pwe.IconId != PwIcon.Star)
+            {
+                pwe.AddTag("keebook_custom_icon");
+            }
+        }
+
+        private void setIcon(PwEntry pwe, string icon_url)
+        {
+            PwCustomIcon custom_icon = getOrAddCustomIcon(getIconBytesFromUrl(icon_url));
+
+            if (custom_icon == null)
+                pwe.IconId = PwIcon.Star;
+            else
+                pwe.CustomIconUuid = custom_icon.Uuid;
         }
 
 
-        private PwCustomIcon addCustomIcon(string icon_url)
+        private void creatNewBookmark(string url, string title, string icon)
         {
+            //If "Set utc date as note" is set in KeeBook, then note = 'the date', else note = string.empty
+            string note = (Properties.Settings.Default.date_as_note) ? LongUtcDateIso8601() + " " + ProductName : string.Empty;
 
+            if (!isDuplicateEntry(url, title))
+            {
+                createEntry(title, url, icon, note);
+            }
+        }
+
+        private PwCustomIcon getKeeBookIcon()
+        {
+            return getOrAddCustomIcon(getIconBytesFromIcon(Properties.Resources.KeeBook));
+        }
+
+        private byte[] getIconBytes(Icon icon)
+        {
+            using (MemoryStream ms = new MemoryStream())
+            {
+                icon.Save(ms);
+                return ms.ToArray();
+            }
+        }
+
+        private byte[] getIconBytesFromUrl(string icon_url)
+        {
             try
             {
-                byte[] icon_data = new System.Net.WebClient().DownloadData(icon_url);
-
-                PwCustomIcon check_icon = getCustomIcon(icon_data);
-                
-                if (check_icon != null)
-                {
-                    return check_icon;
-                }
-
-
-                PwUuid uuid = new PwUuid(true);
-                PwCustomIcon custom_icon = new PwCustomIcon(uuid, icon_data);
-                m_host.Database.CustomIcons.Add(custom_icon);
-                return custom_icon;
+                return new System.Net.WebClient().DownloadData(icon_url);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                showDebugMessage(ex.Message);
+                return null;
             }
-
-            return null;
         }
 
-        private PwCustomIcon getCustomIcon(byte[] icon_data)
+        private byte[] getIconBytesFromIcon(Icon icon)
         {
+            try
+            {
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    icon.Save(ms);
+                    return ms.ToArray();
+                }
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        private PwCustomIcon getOrAddCustomIcon(byte[] icon_data)
+        {
+            if (null == icon_data)
+            {
+                return null;
+            }
+
             try
             {
                 System.Collections.Generic.List<PwCustomIcon> icon_entries = m_host.Database.CustomIcons;
@@ -278,28 +335,69 @@ namespace KeeBook
                     }
                 }
 
+                PwUuid uuid = new PwUuid(true);
+                PwCustomIcon custom_icon = new PwCustomIcon(uuid, icon_data);
+                m_host.Database.CustomIcons.Add(custom_icon);
+                return custom_icon;
             }
             catch (Exception ex)
             {
-                showDebugMessage(ex.Message);
+                showError(ex);
             }
 
             return null;
         }
 
+
         public string CalculateMD5Hash(byte[] input)
         {
-            // step 1, calculate MD5 hash from input
-            System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create();
-            byte[] hash = md5.ComputeHash(input);
-
-            // step 2, convert byte array to hex string
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < hash.Length; i++)
+            try
             {
-                sb.Append(hash[i].ToString("X2"));
+                System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create();
+                byte[] hash = md5.ComputeHash(input);
+
+                // step 2, convert byte array to hex string
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < hash.Length; i++)
+                {
+                    sb.Append(hash[i].ToString("X2"));
+                }
+
+                return sb.ToString();
             }
-            return sb.ToString();
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        private void updateLastEdited()
+        {
+            var group = returnGroup();
+
+            try
+            {
+                KeePassLib.Collections.PwObjectList<PwEntry> group_entries = group.GetEntries(false);
+
+                for (uint i = 0; i < group_entries.UCount; i++)
+                {
+                    if (group_entries.GetAt(i).Strings.Get(PwDefs.TitleField).ReadString() == KEEBOOK_LAST_EDITED_NAME)
+                    {
+                        group.Entries.RemoveAt(i);
+                    }
+                }
+
+                PwGroup pwgroup = returnGroup();
+                PwEntry pwe = new PwEntry(true, true);
+                pwe.CustomIconUuid = getKeeBookIcon().Uuid;
+                pwe.Strings.Set(PwDefs.TitleField, new ProtectedString(false, KEEBOOK_LAST_EDITED_NAME));
+                pwe.Strings.Set(PwDefs.NotesField, new ProtectedString(true, LongUtcDateIso8601() + "   (Utc date)"));
+                pwgroup.AddEntry(pwe, true);
+            }
+            catch (Exception ex)
+            {
+                showError(ex);
+            }
         }
 
 
@@ -321,10 +419,14 @@ namespace KeeBook
         private void customUpdateUI(PwGroup group)
         {
             var win = m_host.MainWindow;
-            if (group == null) group = m_host.Database.RootGroup;
+            m_host.Database.UINeedsIconUpdate = true;
+
+            group = (group == null) ? m_host.Database.RootGroup : group;
+
             var f = (MethodInvoker)delegate {
-                win.UpdateUI(true, null, true, group, true, null, true);
+                win.UpdateUI(false, null, true, group, true, null, true);
             };
+
             if (win.InvokeRequired)
                 win.Invoke(f);
             else
@@ -359,6 +461,11 @@ namespace KeeBook
             {
                 MessageBox.Show(message, ProductName + " Debug Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
+        }
+
+        private void showError(Exception ex)
+        {
+            showDebugMessage(String.Format("KeeBook has encountered an error {0}{0} Error Message: {0}{1}{0}{0} Error Trace: {0}{2}{0}{0} Error Source: {0}{3}{0}{0}", Environment.NewLine, ex.Message, ex.StackTrace, ex.Source.ToString()));
         }
 
         private void cbShowMessageClick(object sender, EventArgs e)
