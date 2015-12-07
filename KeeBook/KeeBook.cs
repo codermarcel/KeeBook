@@ -14,8 +14,13 @@ using System.IO;
 
 namespace KeeBook
 {
+
+
     public sealed class KeeBookExt : Plugin
     {
+        static void Main()
+        {
+        }
 
         #region Date and time
         public readonly System.DateTime EPOCH = new System.DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -38,20 +43,19 @@ namespace KeeBook
 
         private IPluginHost m_host = null;
         private const string ProductName = "KeeBook";
-        private const string keepass_prefix = ProductName + "_";
         private const string KEEBOOK_GROUP_NAME = "Bookmarks (" + ProductName + ")";
         private const string KEEBOOK_LAST_EDITED_NAME = "KeeBook Last Access";
 
+        private const string cbShowSuccessNotificationName = "Show success notification";
         private const string cbShowMsgName = "Show Debug Messages";
-        private const string cvShowMsg = keepass_prefix + cbShowMsgName;
         private const string cbDateName = "Set utc date as note";
-        private const string cvDate = keepass_prefix + cbDateName;
         private const string cbDuplicateEntry = "Prevent adding duplicate entries";
-        private const string cvDuplicateEntry = keepass_prefix + cbDuplicateEntry;
 
         static HttpListener listener;
         private Thread httpThread;
         private bool stopped = false;
+        private System.ComponentModel.IContainer components;
+        private NotifyIcon NotifyIcon1;
 
         public override bool Initialize(IPluginHost host)
         {
@@ -60,6 +64,7 @@ namespace KeeBook
             if (host == null) return false;
             m_host = host;
 
+            bool showSuccessMsg = Properties.Settings.Default.success_message;
             bool showMsg = Properties.Settings.Default.debug_message;
             bool setDate = Properties.Settings.Default.date_as_note;
             bool checkDuplicate = Properties.Settings.Default.prevent_duplicate;
@@ -75,6 +80,14 @@ namespace KeeBook
             kbMenuTootItem.Text = ProductName;
             kbMenuTootItem.Image = KeeBook.Properties.Resources.KeeBook.ToBitmap();
             tsMenu.Add(kbMenuTootItem);
+
+            // Add menu item 'Show success message'
+            ToolStripMenuItem kbMenuSubItemShowSuccess = new ToolStripMenuItem();
+            kbMenuSubItemShowSuccess.Text = cbShowSuccessNotificationName;
+            kbMenuSubItemShowSuccess.Checked = showSuccessMsg;
+            kbMenuSubItemShowSuccess.Enabled = true;
+            kbMenuSubItemShowSuccess.Click += cbShowMessageClick;
+            kbMenuTootItem.DropDownItems.Add(kbMenuSubItemShowSuccess);
 
             // Add menu item 'Show entry messagebox'
             ToolStripMenuItem kbMenuSubItemShowmsg = new ToolStripMenuItem();
@@ -165,16 +178,42 @@ namespace KeeBook
                 string decoded_icon = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(icon));
 
                 showDebugMessage(string.Format("Title - {1}{0}{0} Url - {2}{0}{0} Decoded Title - {3}{0}{0} Decoded Url - {4}{0}{0}", Environment.NewLine, title, url, decoded_title, decoded_url));
-                creatNewBookmark(decoded_url, decoded_title, decoded_icon);
+
+                if (creatNewBookmark(decoded_url, decoded_title, decoded_icon))
+                {
+                    updateLastEdited();
+                    customUpdateUI(returnGroup());
+                    showSuccess(decoded_title);
+                }
+
             }
             catch (Exception ex)
             {
                 showError(ex);
             }
-
-            updateLastEdited();
-            customUpdateUI(returnGroup());
         }
+
+        public void showSuccess(string title)
+        {
+            try
+            {   if (Properties.Settings.Default.success_message)
+                {
+                    NotifyIcon nfi = new NotifyIcon();
+                    this.components = new System.ComponentModel.Container();
+                    this.NotifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
+                    nfi.Visible = true;
+                    nfi.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+                    nfi.ShowBalloonTip(3000, "Successfully added item with title :", title, ToolTipIcon.Info);
+                }
+            }
+            catch (Exception ex)
+            {
+                showError(ex);
+            }
+        }
+
+
+
 
         private bool isDuplicateEntry(string url, string title)
         {
@@ -260,7 +299,7 @@ namespace KeeBook
         }
 
 
-        private void creatNewBookmark(string url, string title, string icon)
+        private bool creatNewBookmark(string url, string title, string icon)
         {
             //If "Set utc date as note" is set in KeeBook, then note = 'the date', else note = string.empty
             string note = (Properties.Settings.Default.date_as_note) ? LongUtcDateIso8601() + " " + ProductName : string.Empty;
@@ -268,21 +307,15 @@ namespace KeeBook
             if (!isDuplicateEntry(url, title))
             {
                 createEntry(title, url, icon, note);
+                return true;
             }
+
+            return false;
         }
 
         private PwCustomIcon getKeeBookIcon()
         {
             return getOrAddCustomIcon(getIconBytesFromIcon(Properties.Resources.KeeBook));
-        }
-
-        private byte[] getIconBytes(Icon icon)
-        {
-            using (MemoryStream ms = new MemoryStream())
-            {
-                icon.Save(ms);
-                return ms.ToArray();
-            }
         }
 
         private byte[] getIconBytesFromUrl(string icon_url)
@@ -443,11 +476,6 @@ namespace KeeBook
             listener = new HttpListener();
             httpThread = null;
 
-            if (Properties.Settings.Default.debug_message)
-            {
-                MessageBox.Show("Saving settings");
-            }
-
             Properties.Settings.Default.Save();
         
             customUpdateUI(null);
@@ -466,6 +494,12 @@ namespace KeeBook
         private void showError(Exception ex)
         {
             showDebugMessage(String.Format("KeeBook has encountered an error {0}{0} Error Message: {0}{1}{0}{0} Error Trace: {0}{2}{0}{0} Error Source: {0}{3}{0}{0}", Environment.NewLine, ex.Message, ex.StackTrace, ex.Source.ToString()));
+        }
+
+        private void cbShowSuccessMessageClick(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.success_message = !Properties.Settings.Default.success_message;
+            ((ToolStripMenuItem)sender).Checked = Properties.Settings.Default.success_message;
         }
 
         private void cbShowMessageClick(object sender, EventArgs e)

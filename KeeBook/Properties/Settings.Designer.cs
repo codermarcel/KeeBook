@@ -58,5 +58,17 @@ namespace KeeBook.Properties {
                 this["date_as_note"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool success_message {
+            get {
+                return ((bool)(this["success_message"]));
+            }
+            set {
+                this["success_message"] = value;
+            }
+        }
     }
 }
