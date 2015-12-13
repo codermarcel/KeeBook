@@ -173,15 +173,15 @@ namespace KeeBook
 
             try
             {
-                string decoded_url = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(url));
-                string decoded_title = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(title));
-                string decoded_icon = System.Text.UTF8Encoding.UTF8.GetString(Convert.FromBase64String(icon));
+                string decoded_url = Encryption.DecryptAESString(url);
+                string decoded_title = Encryption.DecryptAESString(title);
+                string decoded_icon = Encryption.DecryptAESString(icon);
 
                 showDebugMessage(string.Format("Title - {1}{0}{0} Url - {2}{0}{0} Decoded Title - {3}{0}{0} Decoded Url - {4}{0}{0}", Environment.NewLine, title, url, decoded_title, decoded_url));
 
                 if (creatNewBookmark(decoded_url, decoded_title, decoded_icon))
                 {
-                    updateLastEdited();
+                    updateLastEdited(decoded_title);
                     customUpdateUI(returnGroup());
                     showSuccess(decoded_title);
                 }
@@ -193,30 +193,27 @@ namespace KeeBook
             }
         }
 
-        public void showSuccess(string title)
+        private bool creatNewBookmark(string url, string title, string icon)
         {
-            try
-            {   if (Properties.Settings.Default.success_message)
-                {
-                    NotifyIcon nfi = new NotifyIcon();
-                    this.components = new System.ComponentModel.Container();
-                    this.NotifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
-                    nfi.Visible = true;
-                    nfi.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-                    nfi.ShowBalloonTip(3000, "Successfully added item with title :", title, ToolTipIcon.Info);
-                }
-            }
-            catch (Exception ex)
+            //If "Set utc date as note" is set in KeeBook, then note = 'the date', else note = string.empty
+            string note = (Properties.Settings.Default.date_as_note) ? LongUtcDateIso8601() + " " + ProductName : string.Empty;
+
+            if (!isDuplicateEntry(url, title))
             {
-                showError(ex);
+                createEntry(title, url, icon, note);
+                return true;
             }
+
+            return false;
         }
-
-
-
 
         private bool isDuplicateEntry(string url, string title)
         {
+            if (Properties.Settings.Default.prevent_duplicate == false)
+            {
+                return false;
+            }
+
             PwGroup gr = returnGroup();
 
             foreach (PwEntry entry in gr.Entries)
@@ -229,7 +226,7 @@ namespace KeeBook
                     {
                         if (Properties.Settings.Default.prevent_duplicate)
                         {
-                            showDebugMessage("Not adding Duplicate with title" + Environment.NewLine + title);
+                            showDebugMessage("Not adding duplicate bookmark with title:" + Environment.NewLine + title);
                         }
 
                         return true;
@@ -296,21 +293,6 @@ namespace KeeBook
                 pwe.IconId = PwIcon.Star;
             else
                 pwe.CustomIconUuid = custom_icon.Uuid;
-        }
-
-
-        private bool creatNewBookmark(string url, string title, string icon)
-        {
-            //If "Set utc date as note" is set in KeeBook, then note = 'the date', else note = string.empty
-            string note = (Properties.Settings.Default.date_as_note) ? LongUtcDateIso8601() + " " + ProductName : string.Empty;
-
-            if (!isDuplicateEntry(url, title))
-            {
-                createEntry(title, url, icon, note);
-                return true;
-            }
-
-            return false;
         }
 
         private PwCustomIcon getKeeBookIcon()
@@ -404,9 +386,10 @@ namespace KeeBook
             }
         }
 
-        private void updateLastEdited()
+        private void updateLastEdited(string newBookMark)
         {
             var group = returnGroup();
+            var oldNote = string.Empty;
 
             try
             {
@@ -416,6 +399,7 @@ namespace KeeBook
                 {
                     if (group_entries.GetAt(i).Strings.Get(PwDefs.TitleField).ReadString() == KEEBOOK_LAST_EDITED_NAME)
                     {
+                        oldNote = group_entries.GetAt(i).Strings.Get(PwDefs.NotesField).ReadString();
                         group.Entries.RemoveAt(i);
                     }
                 }
@@ -424,7 +408,8 @@ namespace KeeBook
                 PwEntry pwe = new PwEntry(true, true);
                 pwe.CustomIconUuid = getKeeBookIcon().Uuid;
                 pwe.Strings.Set(PwDefs.TitleField, new ProtectedString(false, KEEBOOK_LAST_EDITED_NAME));
-                pwe.Strings.Set(PwDefs.NotesField, new ProtectedString(true, LongUtcDateIso8601() + "   (Utc date)"));
+                pwe.Strings.Set(PwDefs.UserNameField, new ProtectedString(false, LongUtcDateIso8601() + "   (Utc date)"));
+                pwe.Strings.Set(PwDefs.NotesField, new ProtectedString(true, oldNote + Environment.NewLine + newBookMark));
                 pwgroup.AddEntry(pwe, true);
             }
             catch (Exception ex)
@@ -464,6 +449,26 @@ namespace KeeBook
                 win.Invoke(f);
             else
                 f.Invoke();
+        }
+
+        public void showSuccess(string title)
+        {
+            try
+            {
+                if (Properties.Settings.Default.success_message)
+                {
+                    NotifyIcon nfi = new NotifyIcon();
+                    this.components = new System.ComponentModel.Container();
+                    this.NotifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
+                    nfi.Visible = true;
+                    nfi.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+                    nfi.ShowBalloonTip(1000, "Successfully added item with title :", title, ToolTipIcon.Info);
+                }
+            }
+            catch (Exception ex)
+            {
+                showError(ex);
+            }
         }
 
         public override void Terminate()
